@@ -1,48 +1,63 @@
+from typing import Any
+
 from app.services.classifier import (
-    get_reference_range,
     get_critical_threshold,
-    format_reference_range,
+)
+from app.services.dataset_reference import (
+    dataset_reference_service,
 )
 
 
-def reference_range_lookup(test_name: str) -> dict:
+def reference_range_lookup(test_name: str) -> dict[str, Any]:
     """
-    MCP tool that looks up the configured reference range
-    and critical threshold for a laboratory test.
+    MCP tool for laboratory reference-range lookup.
 
-    This tool is used by the Agent when it needs additional
-    laboratory context.
+    The Kaggle laboratory dataset is the primary reference source.
+    Critical thresholds remain application-controlled so the LLM
+    cannot determine severity.
     """
 
-    reference_range = get_reference_range(test_name)
+    reference = dataset_reference_service.get_reference(
+        test_name
+    )
 
-    if reference_range is None:
+    if reference is None:
         return {
             "test_name": test_name,
             "found": False,
+            "source": "dataset",
             "reference_range": None,
             "unit": None,
+            "minimum": None,
+            "maximum": None,
+            "is_numeric": False,
             "critical_threshold": None,
-            "message": "Reference range not available for this test.",
+            "message": (
+                "Reference range not available for this test."
+            ),
         }
 
-    critical_threshold = get_critical_threshold(test_name)
+    critical_threshold = get_critical_threshold(
+        reference["test_name"]
+    )
 
     critical_data = None
 
-    if critical_threshold:
+    if critical_threshold is not None:
         critical_data = {
             "minimum": critical_threshold.minimum,
             "maximum": critical_threshold.maximum,
         }
 
     return {
-        "test_name": test_name,
+        "test_name": reference["test_name"],
         "found": True,
-        "reference_range": format_reference_range(reference_range),
-        "minimum": reference_range.minimum,
-        "maximum": reference_range.maximum,
-        "unit": reference_range.unit,
+        "source": "kaggle_dataset",
+        "reference_range": reference["reference_range"],
+        "unit": reference["unit"],
+        "minimum": reference["minimum"],
+        "maximum": reference["maximum"],
+        "is_numeric": reference["is_numeric"],
         "critical_threshold": critical_data,
     }
 
@@ -54,13 +69,10 @@ def build_lab_context(
     severity: str,
     classification: str,
     reference_range: str,
-) -> dict:
+) -> dict[str, Any]:
     """
-    MCP tool that creates a structured context object for the
-    explanation agent.
-
-    The LLM receives this context rather than deciding the
-    laboratory classification itself.
+    MCP tool that creates structured laboratory context for the
+    Gemini explanation layer.
     """
 
     return {
@@ -71,8 +83,9 @@ def build_lab_context(
         "severity": severity,
         "classification": classification,
         "clinical_context": (
-            "Explain the laboratory result in clear, patient-friendly "
-            "language while preserving the deterministic severity "
-            "classification supplied by the application."
+            "Explain the laboratory result in clear, "
+            "patient-friendly language while preserving the "
+            "deterministic severity classification supplied "
+            "by the application."
         ),
     }

@@ -36,12 +36,8 @@ async def generate_explanation(
     reference_range: str,
     severity: str,
     classification: str,
+    context: dict | None = None,
 ) -> AIExplanation:
-    """
-    Generate a structured clinical explanation using Gemini
-    through LangChain.
-    """
-
     model = get_gemini_model()
 
     user_prompt = build_explanation_prompt(
@@ -52,6 +48,16 @@ async def generate_explanation(
         severity=severity,
         classification=classification,
     )
+
+    if context:
+        user_prompt += f"""
+
+Additional MCP-provided laboratory context:
+{context}
+
+Use this context as supporting information. Do not change the
+application-assigned severity or classification.
+"""
 
     response = await model.ainvoke(
         [
