@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, HTTPException
 
 from app.models.lab import LabAnalysisRequest
@@ -24,8 +23,17 @@ async def health_check():
 async def analyze_lab_results(
     request: LabAnalysisRequest,
 ):
+    """
+    Analyze submitted laboratory results.
+
+    Pipeline:
+        Classify → Route → MCP → Gemini Explanation
+    """
+
     try:
-        return analyze_labs(request)
+        result = await analyze_labs(request)
+
+        return result
 
     except ValueError as exc:
         raise HTTPException(
@@ -33,9 +41,28 @@ async def analyze_lab_results(
             detail=str(exc),
         ) from exc
 
-    except Exception as exc:
+    except RuntimeError as exc:
+        print(
+            f"ANALYSIS RUNTIME ERROR: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
         raise HTTPException(
             status_code=500,
-            detail="Unable to analyze laboratory results.",
+            detail=f"Analysis runtime error: {exc}",
         ) from exc
 
+    except Exception as exc:
+        import traceback
+
+        print(
+            f"ANALYSIS ERROR: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+        traceback.print_exc()
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"{type(exc).__name__}: {exc}",
+        ) from exc
