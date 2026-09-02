@@ -11,42 +11,72 @@ import {
 } from "lucide-react";
 import CsvUpload from "./CsvUpload";
 
+/*
+ * Numeric tests supported by the current backend.
+ *
+ * The backend expects:
+ * {
+ *   test_name: string,
+ *   value: float,
+ *   unit: string
+ * }
+ *
+ * Qualitative strip tests are intentionally not included in the
+ * manual-entry form because they cannot be represented correctly
+ * by the current numeric LabResult model.
+ */
+const TEST_OPTIONS = [
+  "Ferritin",
+  "Glikozile Hemoglobin (HbA1c)",
+  "Total IgE",
+  "İnsülin",
+  "Serbest T4",
+  "Trombosit",
+  "Lökosit",
+  "Hemoglobin",
+  "Eritrosit",
+  "RDW-SD",
+  "RDW",
+  "PDW",
+  "PCT",
+  "Nötrofil%",
+  "Monosit%",
+  "Lenfosit%",
+  "Hematokrit",
+];
+
+/*
+ * Units used by the dataset for the numeric laboratory tests.
+ *
+ * The unit is selected automatically from the test name rather
+ * than being entered manually, which prevents inconsistent input.
+ */
+const TEST_UNITS = {
+  Ferritin: "ug/L",
+  "Glikozile Hemoglobin (HbA1c)": "%",
+  "Total IgE": "KU/L",
+  "İnsülin": "mU/L",
+  "Serbest T4": "ng/dL",
+  Trombosit: "10^9/L",
+  Lökosit: "10^9/L",
+  Hemoglobin: "g/dL",
+  Eritrosit: "10^12/L",
+  "RDW-SD": "fL",
+  RDW: "%",
+  PDW: "%",
+  PCT: "%",
+  "Nötrofil%": "%",
+  "Monosit%": "%",
+  "Lenfosit%": "%",
+  Hematokrit: "%",
+};
+
 const createRow = () => ({
   id: crypto.randomUUID(),
   testName: "",
   value: "",
   unit: "",
 });
-
-const TEST_OPTIONS = [
-  "Hemoglobin",
-  "White Blood Cell Count",
-  "Platelet Count",
-  "Glucose",
-  "Creatinine",
-  "Total Cholesterol",
-  "HDL Cholesterol",
-  "LDL Cholesterol",
-  "Triglycerides",
-  "ALT",
-  "AST",
-  "TSH",
-  "Vitamin D",
-  "Sodium",
-  "Potassium",
-];
-
-const UNIT_OPTIONS = [
-  "g/dL",
-  "mg/dL",
-  "mmol/L",
-  "U/L",
-  "mIU/L",
-  "ng/mL",
-  "x10⁹/L",
-  "cells/µL",
-  "mEq/L",
-];
 
 export default function LabInput({ onAnalyze, disabled = false }) {
   const [inputMode, setInputMode] = useState("manual");
@@ -69,6 +99,22 @@ export default function LabInput({ onAnalyze, disabled = false }) {
     setError("");
   };
 
+  const handleTestChange = (id, testName) => {
+    setRows((currentRows) =>
+      currentRows.map((row) =>
+        row.id === id
+          ? {
+              ...row,
+              testName,
+              unit: TEST_UNITS[testName] ?? "",
+            }
+          : row,
+      ),
+    );
+
+    setError("");
+  };
+
   const addRow = () => {
     setRows((currentRows) => [...currentRows, createRow()]);
     setError("");
@@ -77,10 +123,14 @@ export default function LabInput({ onAnalyze, disabled = false }) {
   const removeRow = (id) => {
     if (rows.length === 1) {
       setRows([createRow()]);
+      setError("");
       return;
     }
 
-    setRows((currentRows) => currentRows.filter((row) => row.id !== id));
+    setRows((currentRows) =>
+      currentRows.filter((row) => row.id !== id),
+    );
+
     setError("");
   };
 
@@ -95,12 +145,80 @@ export default function LabInput({ onAnalyze, disabled = false }) {
     setError("");
   };
 
+  const validateManualRows = () => {
+    const activeRows = rows.filter(
+      (row) =>
+        row.testName.trim() ||
+        row.value !== "" ||
+        row.unit.trim(),
+    );
+
+    if (activeRows.length === 0) {
+      return {
+        valid: false,
+        message:
+          "Please add at least one laboratory result with a test name and value.",
+      };
+    }
+
+    const incompleteRow = activeRows.find(
+      (row) =>
+        !row.testName.trim() ||
+        row.value === "" ||
+        !row.unit.trim(),
+    );
+
+    if (incompleteRow) {
+      return {
+        valid: false,
+        message:
+          "Please complete every laboratory result with a test name and value.",
+      };
+    }
+
+    const invalidValueRow = activeRows.find((row) => {
+      const numericValue = Number(row.value);
+      return !Number.isFinite(numericValue);
+    });
+
+    if (invalidValueRow) {
+      return {
+        valid: false,
+        message: "Laboratory values must be valid numbers.",
+      };
+    }
+
+    const duplicateTests = activeRows.filter(
+      (row, index, array) =>
+        array.findIndex(
+          (item) => item.testName === row.testName,
+        ) !== index,
+    );
+
+    if (duplicateTests.length > 0) {
+      return {
+        valid: false,
+        message:
+          "Please use each laboratory test only once in the same analysis.",
+      };
+    }
+
+    return {
+      valid: true,
+      rows: activeRows,
+    };
+  };
+
   const handleAnalyze = () => {
     if (disabled) return;
 
+    setError("");
+
     if (inputMode === "csv") {
       if (!selectedFile) {
-        setError("Please select a CSV file before starting the analysis.");
+        setError(
+          "Please select a CSV file before starting the analysis.",
+        );
         return;
       }
 
@@ -112,32 +230,16 @@ export default function LabInput({ onAnalyze, disabled = false }) {
       return;
     }
 
-    const validRows = rows.filter(
-      (row) =>
-        row.testName.trim() &&
-        row.value !== "" &&
-        row.unit.trim(),
-    );
+    const validation = validateManualRows();
 
-    if (validRows.length === 0) {
-      setError(
-        "Please add at least one laboratory result with a test name, value, and unit.",
-      );
-      return;
-    }
-
-    const hasInvalidValue = validRows.some(
-      (row) => Number.isNaN(Number(row.value)),
-    );
-
-    if (hasInvalidValue) {
-      setError("Laboratory values must be valid numbers.");
+    if (!validation.valid) {
+      setError(validation.message);
       return;
     }
 
     onAnalyze({
       mode: "manual",
-      results: validRows.map(({ id, ...row }) => ({
+      results: validation.rows.map(({ id, ...row }) => ({
         ...row,
         value: Number(row.value),
       })),
@@ -169,8 +271,8 @@ export default function LabInput({ onAnalyze, disabled = false }) {
           </h2>
 
           <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-zinc-400 sm:text-lg">
-            Enter your laboratory values manually or upload a CSV file for
-            automated analysis and explainable AI insights.
+            Enter your laboratory values manually or upload a CSV
+            file for automated analysis and explainable AI insights.
           </p>
         </div>
 
@@ -192,7 +294,10 @@ export default function LabInput({ onAnalyze, disabled = false }) {
                     : "text-zinc-500 hover:text-zinc-200"
                 }`}
               >
-                <FlaskConical size={17} strokeWidth={1.8} />
+                <FlaskConical
+                  size={17}
+                  strokeWidth={1.8}
+                />
                 Manual Entry
               </button>
 
@@ -209,7 +314,10 @@ export default function LabInput({ onAnalyze, disabled = false }) {
                     : "text-zinc-500 hover:text-zinc-200"
                 }`}
               >
-                <FileSpreadsheet size={17} strokeWidth={1.8} />
+                <FileSpreadsheet
+                  size={17}
+                  strokeWidth={1.8}
+                />
                 CSV Upload
               </button>
             </div>
@@ -251,19 +359,23 @@ export default function LabInput({ onAnalyze, disabled = false }) {
                       <select
                         value={row.testName}
                         onChange={(event) =>
-                          updateRow(
+                          handleTestChange(
                             row.id,
-                            "testName",
                             event.target.value,
                           )
                         }
                         disabled={disabled}
                         className="h-12 w-full appearance-none rounded-lg border border-white/[0.07] bg-zinc-900 px-3.5 text-[15px] text-zinc-200 outline-none transition-all duration-200 focus:border-violet-400/40 focus:ring-2 focus:ring-violet-400/10 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        <option value="">Select a test</option>
+                        <option value="">
+                          Select a test
+                        </option>
 
                         {TEST_OPTIONS.map((test) => (
-                          <option key={test} value={test}>
+                          <option
+                            key={test}
+                            value={test}
+                          >
                             {test}
                           </option>
                         ))}
@@ -299,26 +411,15 @@ export default function LabInput({ onAnalyze, disabled = false }) {
                         Unit
                       </label>
 
-                      <select
-                        value={row.unit}
-                        onChange={(event) =>
-                          updateRow(
-                            row.id,
-                            "unit",
-                            event.target.value,
-                          )
-                        }
-                        disabled={disabled}
-                        className="h-12 w-full appearance-none rounded-lg border border-white/[0.07] bg-zinc-900 px-3.5 text-[15px] text-zinc-200 outline-none transition-all duration-200 focus:border-violet-400/40 focus:ring-2 focus:ring-violet-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+                      <div
+                        className={`flex h-12 w-full items-center rounded-lg border border-white/[0.07] bg-zinc-900 px-3.5 text-[15px] ${
+                          row.unit
+                            ? "text-zinc-300"
+                            : "text-zinc-600"
+                        }`}
                       >
-                        <option value="">Unit</option>
-
-                        {UNIT_OPTIONS.map((unit) => (
-                          <option key={unit} value={unit}>
-                            {unit}
-                          </option>
-                        ))}
-                      </select>
+                        {row.unit || "Unit"}
+                      </div>
                     </div>
 
                     {/* Delete */}
@@ -330,7 +431,10 @@ export default function LabInput({ onAnalyze, disabled = false }) {
                         aria-label={`Remove result ${index + 1}`}
                         className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/[0.06] text-zinc-600 transition-all duration-200 hover:border-red-400/20 hover:bg-red-400/[0.06] hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        <Trash2 size={17} strokeWidth={1.8} />
+                        <Trash2
+                          size={17}
+                          strokeWidth={1.8}
+                        />
                       </button>
                     </div>
                   </div>
@@ -344,13 +448,19 @@ export default function LabInput({ onAnalyze, disabled = false }) {
                 disabled={disabled}
                 className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.09] px-4 py-3.5 text-sm font-medium text-zinc-500 transition-all duration-200 hover:border-violet-400/25 hover:bg-violet-400/[0.03] hover:text-violet-300 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <Plus size={17} strokeWidth={2} />
+                <Plus
+                  size={17}
+                  strokeWidth={2}
+                />
                 Add another result
               </button>
 
               {/* Error */}
               {error && (
-                <div className="mt-5 rounded-xl border border-red-400/15 bg-red-400/[0.05] px-4 py-3.5 text-sm text-red-300">
+                <div
+                  role="alert"
+                  className="mt-5 rounded-xl border border-red-400/15 bg-red-400/[0.05] px-4 py-3.5 text-sm text-red-300"
+                >
                   {error}
                 </div>
               )}
@@ -373,7 +483,9 @@ export default function LabInput({ onAnalyze, disabled = false }) {
                   disabled={disabled}
                   className="group flex min-h-12 items-center justify-center gap-2.5 rounded-xl bg-white px-6 py-3 text-[15px] font-semibold text-zinc-950 shadow-lg shadow-white/[0.04] transition-all duration-300 hover:-translate-y-0.5 hover:bg-zinc-100 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
                 >
-                  {disabled ? "Analyzing..." : "Analyze Results"}
+                  {disabled
+                    ? "Analyzing..."
+                    : "Analyze Results"}
 
                   {!disabled && (
                     <ArrowRight
@@ -413,7 +525,10 @@ export default function LabInput({ onAnalyze, disabled = false }) {
                         </p>
 
                         <p className="mt-0.5 text-xs text-zinc-600">
-                          {(selectedFile.size / 1024).toFixed(1)} KB
+                          {(
+                            selectedFile.size / 1024
+                          ).toFixed(1)}{" "}
+                          KB
                         </p>
                       </div>
                     </div>
@@ -426,7 +541,10 @@ export default function LabInput({ onAnalyze, disabled = false }) {
 
                 {/* Error */}
                 {error && (
-                  <div className="mt-5 rounded-xl border border-red-400/15 bg-red-400/[0.05] px-4 py-3.5 text-sm text-red-300">
+                  <div
+                    role="alert"
+                    className="mt-5 rounded-xl border border-red-400/15 bg-red-400/[0.05] px-4 py-3.5 text-sm text-red-300"
+                  >
                     {error}
                   </div>
                 )}
@@ -449,7 +567,9 @@ export default function LabInput({ onAnalyze, disabled = false }) {
                     disabled={disabled}
                     className="group flex min-h-12 items-center justify-center gap-2.5 rounded-xl bg-white px-6 py-3 text-[15px] font-semibold text-zinc-950 shadow-lg shadow-white/[0.04] transition-all duration-300 hover:-translate-y-0.5 hover:bg-zinc-100 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
                   >
-                    {disabled ? "Analyzing..." : "Analyze CSV"}
+                    {disabled
+                      ? "Analyzing..."
+                      : "Analyze CSV"}
 
                     {!disabled && (
                       <ArrowRight
@@ -468,9 +588,10 @@ export default function LabInput({ onAnalyze, disabled = false }) {
         {/* Bottom Note */}
         <div className="mt-5 flex items-center justify-center gap-2 text-center text-xs text-zinc-600 sm:text-sm">
           <Upload size={14} />
+
           <span>
-            Your results are analyzed against configured clinical reference
-            ranges.
+            Results are classified against configured laboratory
+            reference ranges and explained using AI.
           </span>
         </div>
       </div>

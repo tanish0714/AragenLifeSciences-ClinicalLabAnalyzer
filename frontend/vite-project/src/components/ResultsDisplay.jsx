@@ -1,5 +1,5 @@
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertCircle,
@@ -39,11 +39,21 @@ const SEVERITY_ORDER = {
   Normal: 2,
 };
 
+function getSeverity(result) {
+  return result?.severity ?? "Normal";
+}
+
 export default function ResultsDisplay({ results = [] }) {
   const [activeFilter, setActiveFilter] = useState("All");
 
-  const getSeverity = (result) =>
-    result?.severity || result?.status || "Normal";
+  /*
+   * Every new analysis starts with the complete result set visible.
+   * This prevents a previous filter selection from hiding results
+   * after the user submits another analysis.
+   */
+  useEffect(() => {
+    setActiveFilter("All");
+  }, [results]);
 
   const filterCounts = useMemo(() => {
     return results.reduce(
@@ -72,9 +82,15 @@ export default function ResultsDisplay({ results = [] }) {
       activeFilter === "All"
         ? [...results]
         : results.filter(
-            (result) => getSeverity(result) === activeFilter,
+            (result) =>
+              getSeverity(result) === activeFilter,
           );
 
+    /*
+     * Do not mutate the original results array.
+     * The backend already routes by severity, but sorting here
+     * guarantees the UI maintains the required priority order.
+     */
     return filtered.sort(
       (a, b) =>
         (SEVERITY_ORDER[getSeverity(a)] ?? 99) -
@@ -107,8 +123,9 @@ export default function ResultsDisplay({ results = [] }) {
           </h2>
 
           <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-zinc-400 sm:text-lg">
-            Review severity, reference ranges, classifications, and
-            AI-generated explanations for each laboratory result.
+            Review severity, reference ranges, classifications,
+            and AI-generated explanations for each laboratory
+            result.
           </p>
         </div>
 
@@ -121,21 +138,27 @@ export default function ResultsDisplay({ results = [] }) {
                 {FILTERS.map((filter) => {
                   const Icon = filter.icon;
                   const count = filterCounts[filter.key];
-
-                  const isActive = activeFilter === filter.key;
+                  const isActive =
+                    activeFilter === filter.key;
 
                   return (
                     <button
                       key={filter.key}
                       type="button"
-                      onClick={() => setActiveFilter(filter.key)}
+                      onClick={() =>
+                        setActiveFilter(filter.key)
+                      }
+                      aria-pressed={isActive}
                       className={`flex min-w-max items-center justify-center gap-2 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all duration-200 sm:px-4 ${
                         isActive
                           ? "bg-white text-zinc-950 shadow-lg"
                           : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200"
                       }`}
                     >
-                      <Icon size={15} strokeWidth={1.9} />
+                      <Icon
+                        size={15}
+                        strokeWidth={1.9}
+                      />
 
                       <span>{filter.label}</span>
 
@@ -185,7 +208,10 @@ export default function ResultsDisplay({ results = [] }) {
           <div className="space-y-4">
             {filteredResults.map((result, index) => (
               <div
-                key={result.id ?? `${getSeverity(result)}-${index}`}
+                key={
+                  result.id ??
+                  `${result.test_name ?? "result"}-${index}`
+                }
                 className="animate-in fade-in slide-in-from-bottom-2 duration-500"
                 style={{
                   animationDelay: `${index * 50}ms`,
@@ -228,15 +254,16 @@ export default function ResultsDisplay({ results = [] }) {
                   : "Try another severity filter to view the available laboratory results."}
               </p>
 
-              {results.length > 0 && activeFilter !== "All" && (
-                <button
-                  type="button"
-                  onClick={() => setActiveFilter("All")}
-                  className="mt-5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-zinc-400 transition-all hover:bg-white/[0.06] hover:text-white"
-                >
-                  View all results
-                </button>
-              )}
+              {results.length > 0 &&
+                activeFilter !== "All" && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveFilter("All")}
+                    className="mt-5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-zinc-400 transition-all hover:bg-white/[0.06] hover:text-white"
+                  >
+                    View all results
+                  </button>
+                )}
             </div>
           </div>
         )}

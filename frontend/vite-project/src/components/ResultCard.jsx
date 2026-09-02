@@ -45,39 +45,49 @@ const SEVERITY_CONFIG = {
 };
 
 function formatValue(value) {
-  if (value === null || value === undefined || value === "") {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
     return "—";
   }
 
   const numericValue = Number(value);
 
-  if (!Number.isNaN(numericValue)) {
+  if (Number.isFinite(numericValue)) {
     if (Number.isInteger(numericValue)) {
       return numericValue.toString();
     }
 
-    return numericValue.toFixed(2).replace(/\.?0+$/, "");
+    return numericValue
+      .toFixed(2)
+      .replace(/\.?0+$/, "");
   }
 
   return String(value);
 }
 
 export default function ResultCard({ result = {} }) {
-  const severity = result.severity || result.status || "Normal";
+  const severity = SEVERITY_CONFIG[result.severity]
+    ? result.severity
+    : "Normal";
 
-  const config =
-    SEVERITY_CONFIG[severity] || SEVERITY_CONFIG.Normal;
-
+  const config = SEVERITY_CONFIG[severity];
   const Icon = config.icon;
 
+  /*
+   * Critical and Warning results are expanded by default
+   * because their explanations are the most important part
+   * of the explainable-AI workflow.
+   */
   const [isExpanded, setIsExpanded] = useState(
     severity === "Critical" || severity === "Warning",
   );
 
   const testName =
-    result.testName ||
     result.test_name ||
-    result.name ||
+    result.testName ||
     "Laboratory Test";
 
   const value = formatValue(result.value);
@@ -85,52 +95,27 @@ export default function ResultCard({ result = {} }) {
   const unit = result.unit || "";
 
   const referenceRange =
-    result.referenceRange ||
-    result.reference_range ||
-    result.range ||
-    "Not available";
+    result.reference_range || "Not available";
 
   const classification =
-    result.classification ||
-    result.status ||
-    severity;
+    result.classification || severity;
 
-  const explanation =
-    result.explanation ||
-    result.aiExplanation ||
-    result.ai_explanation ||
-    "";
+  const explanation = result.explanation || "";
 
-  const nextStep =
-    result.nextStep ||
-    result.next_step ||
-    result.suggestedNextStep ||
-    "";
+  const nextStep = result.next_step || "";
 
   return (
     <article
-      className={
-        "group relative overflow-hidden rounded-2xl border " +
-        config.border +
-        " bg-zinc-900/60 shadow-xl shadow-black/[0.12] backdrop-blur-xl transition-all duration-300 hover:bg-zinc-900/75"
-      }
+      className={`group relative overflow-hidden rounded-2xl border ${config.border} bg-zinc-900/60 shadow-xl shadow-black/[0.12] backdrop-blur-xl transition-all duration-300 hover:bg-zinc-900/75`}
     >
       {/* Severity Accent */}
       <div
-        className={
-          "absolute left-0 top-0 h-full w-[2px] " +
-          config.line +
-          " opacity-70"
-        }
+        className={`absolute left-0 top-0 h-full w-[2px] ${config.line} opacity-70`}
       />
 
       {/* Ambient Severity Glow */}
       <div
-        className={
-          "pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full " +
-          config.glow +
-          " blur-3xl"
-        }
+        className={`pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full ${config.glow} blur-3xl`}
       />
 
       <div className="relative">
@@ -140,10 +125,7 @@ export default function ResultCard({ result = {} }) {
             {/* Test Information */}
             <div className="flex min-w-0 items-start gap-4">
               <div
-                className={
-                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.06] " +
-                  config.iconBg
-                }
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.06] ${config.iconBg}`}
               >
                 <Icon
                   size={21}
@@ -154,7 +136,7 @@ export default function ResultCard({ result = {} }) {
 
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2.5">
-                  <h3 className="text-base font-semibold tracking-tight text-white sm:text-lg">
+                  <h3 className="break-words text-base font-semibold tracking-tight text-white sm:text-lg">
                     {testName}
                   </h3>
 
@@ -167,7 +149,7 @@ export default function ResultCard({ result = {} }) {
               </div>
             </div>
 
-            {/* Value */}
+            {/* Value + Expand */}
             <div className="flex items-center justify-between gap-5 lg:justify-end">
               <div className="text-left lg:text-right">
                 <p className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-600">
@@ -191,7 +173,9 @@ export default function ResultCard({ result = {} }) {
               <button
                 type="button"
                 onClick={() =>
-                  setIsExpanded((current) => !current)
+                  setIsExpanded(
+                    (current) => !current,
+                  )
                 }
                 aria-expanded={isExpanded}
                 aria-label={
@@ -199,12 +183,14 @@ export default function ResultCard({ result = {} }) {
                     ? `Collapse ${testName} details`
                     : `Expand ${testName} details`
                 }
-                className={
-                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.025] text-zinc-500 transition-all duration-300 hover:border-white/[0.13] hover:bg-white/[0.05] hover:text-zinc-200 " +
-                  (isExpanded ? "rotate-180" : "")
-                }
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.025] text-zinc-500 transition-all duration-300 hover:border-white/[0.13] hover:bg-white/[0.05] hover:text-zinc-200 ${
+                  isExpanded ? "rotate-180" : ""
+                }`}
               >
-                <ChevronDown size={18} strokeWidth={1.8} />
+                <ChevronDown
+                  size={18}
+                  strokeWidth={1.8}
+                />
               </button>
             </div>
           </div>
@@ -245,10 +231,7 @@ export default function ResultCard({ result = {} }) {
               </div>
 
               <p
-                className={
-                  "mt-1.5 text-[15px] font-semibold " +
-                  config.accent
-                }
+                className={`mt-1.5 text-[15px] font-semibold ${config.accent}`}
               >
                 {classification}
               </p>
@@ -258,12 +241,11 @@ export default function ResultCard({ result = {} }) {
 
         {/* AI Explanation */}
         <div
-          className={
-            "grid transition-[grid-template-rows,opacity] duration-300 " +
-            (isExpanded
+          className={`grid transition-[grid-template-rows,opacity] duration-300 ${
+            isExpanded
               ? "grid-rows-[1fr] opacity-100"
-              : "grid-rows-[0fr] opacity-0")
-          }
+              : "grid-rows-[0fr] opacity-0"
+          }`}
         >
           <div className="overflow-hidden">
             <div className="border-t border-white/[0.06] bg-zinc-950/20 p-5 sm:p-6 lg:p-7">

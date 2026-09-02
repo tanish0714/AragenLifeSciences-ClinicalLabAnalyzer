@@ -1,3 +1,4 @@
+
 import {
   AlertCircle,
   AlertTriangle,
@@ -7,7 +8,7 @@ import {
 
 const summaryConfig = [
   {
-    key: "Critical",
+    key: "critical",
     label: "Critical",
     description: "Requires immediate attention",
     icon: AlertCircle,
@@ -17,7 +18,7 @@ const summaryConfig = [
     accent: "bg-red-400",
   },
   {
-    key: "Warning",
+    key: "warning",
     label: "Warning",
     description: "Outside the normal range",
     icon: AlertTriangle,
@@ -27,7 +28,7 @@ const summaryConfig = [
     accent: "bg-amber-400",
   },
   {
-    key: "Normal",
+    key: "normal",
     label: "Normal",
     description: "Within the reference range",
     icon: CheckCircle2,
@@ -38,25 +39,39 @@ const summaryConfig = [
   },
 ];
 
-export default function SummaryCards({ results = [] }) {
-  const counts = results.reduce(
-    (accumulator, result) => {
-      const status = result?.status || result?.severity;
-
-      if (status && accumulator[status] !== undefined) {
-        accumulator[status] += 1;
+export default function SummaryCards({
+  results = [],
+  summary = null,
+}) {
+  /*
+   * Prefer the backend-generated summary.
+   *
+   * The backend is the source of truth for the analysis result,
+   * so the frontend should display those values instead of
+   * duplicating summary/business logic.
+   *
+   * The fallback keeps the component resilient if summary is
+   * temporarily unavailable.
+   */
+  const counts = summary
+    ? {
+        critical: summary.critical ?? 0,
+        warning: summary.warning ?? 0,
+        normal: summary.normal ?? 0,
       }
+    : {
+        critical: results.filter(
+          (result) => result?.severity === "Critical",
+        ).length,
+        warning: results.filter(
+          (result) => result?.severity === "Warning",
+        ).length,
+        normal: results.filter(
+          (result) => result?.severity === "Normal",
+        ).length,
+      };
 
-      return accumulator;
-    },
-    {
-      Critical: 0,
-      Warning: 0,
-      Normal: 0,
-    },
-  );
-
-  const total = results.length;
+  const total = summary?.total ?? results.length;
 
   return (
     <section className="w-full px-0 py-10 sm:py-12">
@@ -91,12 +106,13 @@ export default function SummaryCards({ results = [] }) {
           </div>
         </div>
 
-        {/* Cards */}
+        {/* Summary Cards */}
         <div className="grid gap-4 md:grid-cols-3">
           {summaryConfig.map((item) => {
             const Icon = item.icon;
             const count = counts[item.key];
-            const percentage = total > 0 ? (count / total) * 100 : 0;
+            const percentage =
+              total > 0 ? (count / total) * 100 : 0;
 
             return (
               <div
@@ -170,8 +186,8 @@ export default function SummaryCards({ results = [] }) {
         {total === 0 && (
           <div className="mt-4 rounded-xl border border-dashed border-white/[0.07] bg-white/[0.015] px-5 py-4 text-center">
             <p className="text-sm text-zinc-600">
-              Analysis results will appear here once you submit your laboratory
-              values.
+              Analysis results will appear here once you submit
+              your laboratory values.
             </p>
           </div>
         )}

@@ -7,7 +7,7 @@ import {
   X,
   ChevronRight,
 } from "lucide-react";
-
+import logo from '../assets/logo.svg'
 const navItems = [
   { label: "Analysis", href: "#analysis" },
   { label: "History", href: "#history" },

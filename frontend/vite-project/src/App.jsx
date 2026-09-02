@@ -1,5 +1,5 @@
-
 import { useState } from "react";
+
 import Navbar from "./components/Navbar";
 import HeroSection from "./components/HeroSection";
 import LabInput from "./components/LabInput";
@@ -7,60 +7,8 @@ import SummaryCards from "./components/SummaryCards";
 import ResultsDisplay from "./components/ResultsDisplay";
 import LoadingState from "./components/LoadingState";
 
-const MOCK_RESULTS = [
-  {
-    id: "1",
-    testName: "Hemoglobin",
-    value: 10.2,
-    unit: "g/dL",
-    referenceRange: "12.0 – 16.0 g/dL",
-    severity: "Warning",
-    classification: "Below reference range",
-    explanation:
-      "The hemoglobin value is below the configured reference range. Lower hemoglobin levels can be associated with reduced oxygen-carrying capacity and may warrant further clinical evaluation in the appropriate context.",
-    nextStep:
-      "Consider discussing this result with a healthcare professional and reviewing it alongside the patient's symptoms and other blood-count results.",
-  },
-  {
-    id: "2",
-    testName: "Glucose",
-    value: 186,
-    unit: "mg/dL",
-    referenceRange: "70 – 140 mg/dL",
-    severity: "Critical",
-    classification: "Above reference range",
-    explanation:
-      "The measured glucose value is substantially above the configured reference range. Elevated glucose can occur for several reasons, and interpretation depends on factors such as timing, fasting status, medications, and clinical context.",
-    nextStep:
-      "A healthcare professional should review this result together with the patient's clinical history and relevant follow-up testing.",
-  },
-  {
-    id: "3",
-    testName: "Creatinine",
-    value: 0.9,
-    unit: "mg/dL",
-    referenceRange: "0.6 – 1.2 mg/dL",
-    severity: "Normal",
-    classification: "Within reference range",
-    explanation:
-      "The measured creatinine value falls within the configured reference range for this analysis.",
-    nextStep:
-      "No abnormality was identified by the configured reference-range comparison.",
-  },
-  {
-    id: "4",
-    testName: "Platelet Count",
-    value: 248,
-    unit: "x10⁹/L",
-    referenceRange: "150 – 450 x10⁹/L",
-    severity: "Normal",
-    classification: "Within reference range",
-    explanation:
-      "The platelet count is within the configured reference range for this analysis.",
-    nextStep:
-      "Continue interpreting this result alongside the complete blood count and clinical context.",
-  },
-];
+import { useLabAnalysis } from "./hooks/useLabAnalysis";
+
 
 function scrollToSection(id) {
   const element = document.querySelector(id);
@@ -73,10 +21,19 @@ function scrollToSection(id) {
   }
 }
 
+
 export default function App() {
-  const [results, setResults] = useState([]);
   const [isInputVisible, setIsInputVisible] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+
+  const {
+  results,
+  summary,
+  loading,
+  error,
+  analyze,
+  analyzeFile,
+} = useLabAnalysis();
+
 
   const handleAnalyzeClick = () => {
     setIsInputVisible(true);
@@ -86,53 +43,101 @@ export default function App() {
     }, 50);
   };
 
+
   const handleAnalyze = async (payload) => {
-    console.log("Analysis payload:", payload);
+  try {
+    if (payload.mode === "csv") {
+      await analyzeFile(payload.file);
+    } else {
+      const results = payload.results.map((result) => ({
+        test_name: result.testName,
+        value: Number(result.value),
+        unit: result.unit,
+      }));
 
-    setIsLoading(true);
-
-    // Temporary frontend simulation.
-    // This will be replaced by the FastAPI API call.
-    await new Promise((resolve) => {
-      setTimeout(resolve, 1400);
-    });
-
-    setResults(MOCK_RESULTS);
-    setIsLoading(false);
+      await analyze(results);
+    }
 
     setTimeout(() => {
       scrollToSection("#analysis");
     }, 50);
-  };
+  } catch (err) {
+    console.error("Lab analysis failed:", err);
+  }
+};
+
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-zinc-950 text-zinc-100">
+
       {/* Navigation */}
       <Navbar />
 
+
       {/* Hero */}
-      <HeroSection onAnalyzeClick={handleAnalyzeClick} />
+      <HeroSection
+        onAnalyzeClick={handleAnalyzeClick}
+      />
+
 
       {/* Main Application */}
       <main className="relative w-full px-4 pb-20 sm:px-6 lg:px-8">
+
         {/* Input Section */}
         {isInputVisible && (
           <LabInput
             onAnalyze={handleAnalyze}
-            disabled={isLoading}
+            disabled={loading}
           />
         )}
 
+
+        {/* Error */}
+        {error && !loading && (
+          <section className="mx-auto w-full max-w-6xl py-6">
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-5 py-4">
+              <div className="flex items-start gap-3">
+
+                <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-500/20 text-xs font-bold text-red-400">
+                  !
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-red-300">
+                    Analysis failed
+                  </p>
+
+                  <p className="mt-1 text-sm leading-6 text-red-400/80">
+                    {error}
+                  </p>
+                </div>
+
+              </div>
+            </div>
+          </section>
+        )}
+
+
         {/* Analysis Area */}
-        {isLoading ? (
+        {loading ? (
           <LoadingState />
         ) : (
           <>
-            <SummaryCards results={results} />
+            {summary && (
+              <SummaryCards
+                results={results}
+                summary={summary}
+              />
+            )}
 
-            <ResultsDisplay results={results} />
+            {results.length > 0 && (
+              <ResultsDisplay
+                results={results}
+              />
+            )}
           </>
         )}
+
 
         {/* Explainability Section */}
         <section
@@ -140,13 +145,18 @@ export default function App() {
           className="w-full scroll-mt-24 py-16 sm:py-20 lg:py-24"
         >
           <div className="mx-auto w-full max-w-6xl">
+
             <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-zinc-900/50 p-6 shadow-xl shadow-black/10 backdrop-blur-xl sm:p-8 lg:p-10">
+
               {/* Background Glow */}
               <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-violet-500/[0.05] blur-3xl" />
 
+
               <div className="relative grid gap-10 lg:grid-cols-[1fr_1.2fr] lg:items-center">
+
                 {/* Text */}
                 <div>
+
                   <span className="text-sm font-medium uppercase tracking-[0.14em] text-violet-400">
                     Explainable AI
                   </span>
@@ -161,10 +171,13 @@ export default function App() {
                     decision transparent while using generative AI where it
                     adds the most value.
                   </p>
+
                 </div>
+
 
                 {/* Pipeline */}
                 <div className="grid gap-3 sm:grid-cols-3">
+
                   {[
                     {
                       number: "01",
@@ -186,6 +199,7 @@ export default function App() {
                       key={step.number}
                       className="rounded-xl border border-white/[0.06] bg-zinc-950/40 p-4"
                     >
+
                       <span className="text-xs font-semibold tracking-[0.12em] text-violet-400">
                         {step.number}
                       </span>
@@ -197,14 +211,21 @@ export default function App() {
                       <p className="mt-2 text-sm leading-6 text-zinc-500">
                         {step.text}
                       </p>
+
                     </div>
                   ))}
+
                 </div>
+
               </div>
+
             </div>
+
           </div>
         </section>
+
       </main>
+
 
       {/* Footer */}
       <footer
@@ -212,6 +233,7 @@ export default function App() {
         className="border-t border-white/[0.06] px-4 py-8 sm:px-6 lg:px-8"
       >
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 text-center sm:flex-row sm:text-left">
+
           <div>
             <p className="text-sm font-medium text-zinc-400">
               ClinicalAI
@@ -225,9 +247,10 @@ export default function App() {
           <p className="text-xs text-zinc-700">
             AI-assisted analysis · Built for demonstration purposes
           </p>
+
         </div>
       </footer>
+
     </div>
   );
 }
-

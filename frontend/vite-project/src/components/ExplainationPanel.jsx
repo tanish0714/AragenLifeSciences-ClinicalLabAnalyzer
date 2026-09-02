@@ -35,7 +35,8 @@ export default function ExplanationPanel({
   severity = "Normal",
 }) {
   const style =
-    SEVERITY_STYLES[severity] || SEVERITY_STYLES.Normal;
+    SEVERITY_STYLES[severity] ||
+    SEVERITY_STYLES.Normal;
 
   const Icon = style.icon;
 
@@ -44,18 +45,11 @@ export default function ExplanationPanel({
       {/* AI Explanation */}
       {explanation && (
         <div
-          className={
-            "rounded-xl border " +
-            style.border +
-            " bg-white/[0.015] p-4 sm:p-5"
-          }
+          className={`rounded-xl border ${style.border} bg-white/[0.015] p-4 sm:p-5`}
         >
           <div className="flex items-start gap-3">
             <div
-              className={
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg " +
-                style.iconBg
-              }
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${style.iconBg}`}
             >
               <Icon
                 size={17}
@@ -64,12 +58,12 @@ export default function ExplanationPanel({
               />
             </div>
 
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-600">
                 What this result means
               </p>
 
-              <p className="mt-2 text-[15px] leading-7 text-zinc-300 sm:text-base">
+              <p className="mt-2 whitespace-pre-line text-[15px] leading-7 text-zinc-300 sm:text-base">
                 {explanation}
               </p>
             </div>
@@ -92,13 +86,39 @@ export default function ExplanationPanel({
               />
             </div>
 
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-violet-300/70">
                 Suggested next step
               </p>
 
-              <p className="mt-2 text-[15px] leading-7 text-zinc-300 sm:text-base">
+              <p className="mt-2 whitespace-pre-line text-[15px] leading-7 text-zinc-300 sm:text-base">
                 {nextStep}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Missing AI Content */}
+      {!explanation && !nextStep && (
+        <div className="rounded-xl border border-dashed border-white/[0.07] bg-white/[0.015] px-4 py-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.03]">
+              <MessageSquareText
+                size={17}
+                strokeWidth={1.8}
+                className="text-zinc-600"
+              />
+            </div>
+
+            <div>
+              <p className="text-sm font-medium text-zinc-400">
+                AI explanation unavailable
+              </p>
+
+              <p className="mt-1 text-sm leading-6 text-zinc-600">
+                No explanation was returned for this laboratory
+                result.
               </p>
             </div>
           </div>
@@ -114,9 +134,10 @@ export default function ExplanationPanel({
         />
 
         <p className="text-xs leading-5 text-zinc-600">
-          This explanation is intended to help interpret the laboratory
-          result and is not a medical diagnosis. Clinical decisions should
-          be made with an appropriate healthcare professional.
+          This explanation is intended to help interpret the
+          laboratory result and is not a medical diagnosis.
+          Clinical decisions should be made with an appropriate
+          healthcare professional.
         </p>
       </div>
     </div>
