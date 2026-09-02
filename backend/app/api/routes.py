@@ -5,7 +5,6 @@ from app.models.response import LabAnalysisResponse
 from app.services.agent import analyze_labs
 from app.services.csv_parser import parse_csv_content
 
-
 router = APIRouter()
 
 
@@ -21,20 +20,9 @@ async def health_check():
     "/analyze_labs",
     response_model=LabAnalysisResponse,
 )
-async def analyze_lab_results(
-    request: LabAnalysisRequest,
-):
-    """
-    Analyze submitted laboratory results.
-
-    Pipeline:
-        Classify → Route → MCP → Gemini Explanation
-    """
-
+async def analyze_lab_results(request: LabAnalysisRequest):
     try:
-        result = await analyze_labs(request)
-
-        return result
+        return await analyze_labs(request)
 
     except ValueError as exc:
         raise HTTPException(
@@ -43,29 +31,22 @@ async def analyze_lab_results(
         ) from exc
 
     except RuntimeError as exc:
-        print(
-            f"ANALYSIS RUNTIME ERROR: "
-            f"{type(exc).__name__}: {exc}"
-        )
+        print(f"ANALYSIS RUNTIME ERROR: {exc}")
 
         raise HTTPException(
-            status_code=500,
-            detail=f"Analysis runtime error: {exc}",
+            status_code=502,
+            detail=(
+                "The AI analysis service is temporarily unavailable. "
+                "Please try again."
+            ),
         ) from exc
 
     except Exception as exc:
-        import traceback
-
-        print(
-            f"ANALYSIS ERROR: "
-            f"{type(exc).__name__}: {exc}"
-        )
-
-        traceback.print_exc()
+        print(f"UNEXPECTED ANALYSIS ERROR: {type(exc).__name__}: {exc}")
 
         raise HTTPException(
             status_code=500,
-            detail=f"{type(exc).__name__}: {exc}",
+            detail="An unexpected server error occurred.",
         ) from exc
 
 
@@ -73,13 +54,7 @@ async def analyze_lab_results(
     "/analyze_csv",
     response_model=LabAnalysisResponse,
 )
-async def analyze_csv(
-    file: UploadFile = File(...),
-):
-    """
-    Analyze laboratory results uploaded as a CSV file.
-    """
-
+async def analyze_csv(file: UploadFile = File(...)):
     if not file.filename:
         raise HTTPException(
             status_code=400,
@@ -105,17 +80,24 @@ async def analyze_csv(
             detail=str(exc),
         ) from exc
 
-    except Exception as exc:
-        import traceback
+    except RuntimeError as exc:
+        print(f"CSV ANALYSIS RUNTIME ERROR: {exc}")
 
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "The AI analysis service is temporarily unavailable. "
+                "Please try again."
+            ),
+        ) from exc
+
+    except Exception as exc:
         print(
-            f"CSV ANALYSIS ERROR: "
+            f"UNEXPECTED CSV ERROR: "
             f"{type(exc).__name__}: {exc}"
         )
 
-        traceback.print_exc()
-
         raise HTTPException(
             status_code=500,
-            detail=f"{type(exc).__name__}: {exc}",
+            detail="An unexpected server error occurred.",
         ) from exc
