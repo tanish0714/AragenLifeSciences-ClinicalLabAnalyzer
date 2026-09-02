@@ -1,15 +1,41 @@
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.api.routes import router
+from app.config import settings
+
 
 app = FastAPI(
-    title="Clinical Lab Intelligence API",
-    description="Explainable AI laboratory results analyzer",
-    version="1.0.0",
+    title=settings.app_name,
+    version=settings.app_version,
+    description=(
+        "AI-powered clinical laboratory "
+        "results analyzer."
+    ),
 )
 
 
-@app.get("/health")
-def health_check():
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        settings.frontend_url,
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+app.include_router(router)
+
+
+@app.get("/")
+async def root():
     return {
-        "status": "healthy",
-        "service": "clinical-lab-analyzer",
+        "message": (
+            "Clinical Lab Results Analyzer API"
+        ),
+        "version": settings.app_version,
     }
+

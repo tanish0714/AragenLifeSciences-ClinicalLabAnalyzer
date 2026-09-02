@@ -1,4 +1,3 @@
-
 from typing import Any
 
 
@@ -9,13 +8,14 @@ SEVERITY_PRIORITY = {
 }
 
 
-def route_results(
-    results: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
+def route_results(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
-    Sort results by severity.
+    Route and prioritize laboratory results by severity.
 
-    Critical → Warning → Normal
+    Priority:
+    1. Critical
+    2. Warning
+    3. Normal
     """
 
     return sorted(
@@ -27,9 +27,11 @@ def route_results(
     )
 
 
-def build_summary(
-    results: list[dict[str, Any]],
-) -> dict[str, int]:
+def build_summary(results: list[dict[str, Any]]) -> dict[str, int]:
+    """
+    Build aggregate severity counts for the analysis response.
+    """
+
     summary = {
         "total": len(results),
         "critical": 0,
@@ -38,10 +40,7 @@ def build_summary(
     }
 
     for result in results:
-        severity = result.get(
-            "severity",
-            "Normal",
-        )
+        severity = result.get("severity", "Normal")
 
         if severity == "Critical":
             summary["critical"] += 1
@@ -53,4 +52,3 @@ def build_summary(
             summary["normal"] += 1
 
     return summary
-
